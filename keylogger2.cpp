@@ -39,11 +39,6 @@ void StartLogging() {
     auto prevTimestamp = std::chrono::high_resolution_clock::now();
 
     while (true) {
-
-        
-
-        
-
         HWND foregroundWindow = GetForegroundWindow();
         GetWindowTextA(foregroundWindow, windowTitle, sizeof(windowTitle));
 
